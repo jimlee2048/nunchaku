@@ -66,20 +66,51 @@ jobs:
           git config user.email "github-actions@users.noreply.github.com"
           git tag ${{ steps.tag.outputs.tag_name }}
           git push origin ${{ steps.tag.outputs.tag_name }}
+      - name: Ensure GitHub prerelease exists
+        if: steps.check.outputs.need_build == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.tag.outputs.tag_name }}
+        run: |
+          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release create "$TAG_NAME" --verify-tag --prerelease --title "Nunchaku Nightly $TAG_NAME"
+          fi
       - name: Skip tagging (version is not dev or no new commits)
         if: steps.check.outputs.need_build == 'false'
         run: echo "Version is not a dev version or no new commits. Skipping tag."
   linux-wheels:
     name: Build the linux nightly wheels
-    runs-on: [self-hosted, linux-build]
+    runs-on: ubuntu-24.04
     needs: tag
     if: needs.tag.outputs.need_build == 'true' && github.repository == 'jimlee2048/nunchaku'
     strategy:
+      max-parallel: 2
       matrix:
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         torch: ["2.13", "pre"]
         cuda: ["13.0"] # Phase 2: expand to ["12.6", "13.0", "13.2"] after validation.
     steps:
+      - name: Prepare Docker storage
+        run: |
+          sudo systemctl stop docker
+          sudo find /var/lib/docker -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+      - name: Maximize Docker build space
+        uses: easimon/maximize-build-space@c28619d8999a147d5e09c1199f84ff6af6ad5794
+        with:
+          build-mount-path: /var/lib/docker
+          build-mount-path-ownership: root:root
+          root-reserve-mb: 16384
+          swap-size-mb: 8192
+          remove-android: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+      - name: Start Docker and show resources
+        run: |
+          sudo systemctl start docker
+          free -h
+          df -h
+          docker info
       - name: Checkout to the tag
         uses: actions/checkout@v4
         with:
@@ -91,9 +122,9 @@ jobs:
       - name: Build wheels
         run: |
           if [[ "${{ matrix.torch }}" == "pre" ]]; then
-            bash scripts/build_linux_wheel_torch_nightly.sh ${{ matrix.python }} ${{ matrix.torch }} ${{ matrix.cuda }}
+            bash scripts/build_linux_wheel_torch_nightly.sh ${{ matrix.python }} ${{ matrix.torch }} ${{ matrix.cuda }} 1
           else
-            bash scripts/build_linux_wheel.sh ${{ matrix.python }} ${{ matrix.torch }} ${{ matrix.cuda }}
+            bash scripts/build_linux_wheel.sh ${{ matrix.python }} ${{ matrix.torch }} ${{ matrix.cuda }} 1
           fi
       - name: Upload wheels to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -104,15 +135,18 @@ jobs:
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Clean up
-        if: always()
-        run: bash scripts/linux_cleanup.sh
   windows-wheels:
     name: Build the windows nightly wheels
-    runs-on: [self-hosted, win-build]
+    runs-on: windows-2025
     needs: tag
     if: needs.tag.outputs.need_build == 'true' && github.repository == 'jimlee2048/nunchaku'
+    env:
+      CUDA_VERSION_MAP: >-
+        {
+          "13.0": "13.0.2"
+        }
     strategy:
+      max-parallel: 2
       matrix:
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         torch: ["2.13", "pre"]
@@ -127,14 +161,33 @@ jobs:
       - name: Show current commit
         shell: cmd
         run: git log -1 --oneline
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install CUDA toolkit
+        uses: Jimver/cuda-toolkit@b8bf9c6c28f8a92fbb04dcfcaee872e60c57462d
+        id: cuda-toolkit
+        with:
+          cuda: ${{ fromJSON(env.CUDA_VERSION_MAP)[matrix.cuda] }}
+          method: network
+          sub-packages: '["nvcc", "cudart", "cublas", "cublas_dev", "cccl", "nvtx", "visual_studio_integration"]'
+          use-local-cache: false
+          use-github-cache: false
+          log-file-suffix: nightly-py${{ matrix.python }}-torch${{ matrix.torch }}-cu${{ matrix.cuda }}
+      - name: Show resources and toolchain
+        shell: pwsh
+        run: |
+          Get-PSDrive -PSProvider FileSystem
+          Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize, FreePhysicalMemory
+          nvcc --version
       - name: Build wheels
         shell: cmd
         run: |
-          call C:\Users\nunchaku\miniconda3\condabin\activate.bat activate
           IF "${{ matrix.torch }}"=="pre" (
-            call scripts\build_windows_wheel_torch_nightly.cmd ${{ matrix.python }} ${{ matrix.torch }} ${{ matrix.cuda }} 8
+            call scripts\build_windows_wheel_torch_nightly.cmd ${{ matrix.python }} ${{ matrix.torch }} ${{ matrix.cuda }} 1
           ) ELSE (
-            call scripts\build_windows_wheel.cmd ${{ matrix.python }} ${{ matrix.torch }} ${{ matrix.cuda }} 8
+            call scripts\build_windows_wheel.cmd ${{ matrix.python }} ${{ matrix.torch }} ${{ matrix.cuda }} 1
           )
       - name: Upload wheels to GitHub Release
         uses: softprops/action-gh-release@v2
