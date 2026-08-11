@@ -137,7 +137,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   windows-wheels:
     name: Build the windows nightly wheels
-    runs-on: windows-2025
+    runs-on: windows-2022
     needs: tag
     if: needs.tag.outputs.need_build == 'true' && github.repository == 'jimlee2048/nunchaku'
     env:
@@ -171,7 +171,7 @@ jobs:
         with:
           cuda: ${{ fromJSON(env.CUDA_VERSION_MAP)[matrix.cuda] }}
           method: network
-          sub-packages: '["nvcc", "cudart", "cublas", "cublas_dev", "cccl", "nvtx", "visual_studio_integration"]'
+          sub-packages: '["nvcc", "cudart", "cublas", "cublas_dev", "nvtx", "thrust"]'
           use-local-cache: false
           use-github-cache: false
           log-file-suffix: nightly-py${{ matrix.python }}-torch${{ matrix.torch }}-cu${{ matrix.cuda }}
