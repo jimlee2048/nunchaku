@@ -9,7 +9,7 @@ jobs:
   tag:
     name: Check if main branch is a dev version
     runs-on: ubuntu-latest
-    if: github.repository == 'nunchaku-ai/nunchaku'
+    if: github.repository == 'jimlee2048/nunchaku'
     outputs:
       need_build: ${{ steps.check.outputs.need_build }}
       tag_name: ${{ steps.tag.outputs.tag_name }}
@@ -73,15 +73,12 @@ jobs:
     name: Build the linux nightly wheels
     runs-on: [self-hosted, linux-build]
     needs: tag
-    if: needs.tag.outputs.need_build == 'true' && github.repository == 'nunchaku-ai/nunchaku'
+    if: needs.tag.outputs.need_build == 'true' && github.repository == 'jimlee2048/nunchaku'
     strategy:
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13"]
-        torch: ["2.8", "2.9", "2.10", "pre"]
-        cuda: ["12.8", "13.0"]
-        exclude:
-          - torch: "2.8"
-            cuda: "13.0"
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        torch: ["2.13", "pre"]
+        cuda: ["13.0"] # Phase 2: expand to ["12.6", "13.0", "13.2"] after validation.
     steps:
       - name: Checkout to the tag
         uses: actions/checkout@v4
@@ -114,15 +111,12 @@ jobs:
     name: Build the windows nightly wheels
     runs-on: [self-hosted, win-build]
     needs: tag
-    if: needs.tag.outputs.need_build == 'true' && github.repository == 'nunchaku-ai/nunchaku'
+    if: needs.tag.outputs.need_build == 'true' && github.repository == 'jimlee2048/nunchaku'
     strategy:
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13"]
-        torch: ["2.8", "2.9", "2.10", "pre"]
-        cuda: ["12.8", "13.0"]
-        exclude:
-          - torch: "2.8"
-            cuda: "13.0"
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        torch: ["2.13", "pre"]
+        cuda: ["13.0"] # Phase 2: expand to ["12.6", "13.0", "13.2"] after validation.
     steps:
       - name: Checkout to the tag
         uses: actions/checkout@v4

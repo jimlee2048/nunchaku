@@ -1,14 +1,14 @@
 name: Clean Old Nightly Releases
 on:
   schedule:
-    - cron: '* 6 * * *'
+    - cron: '0 6 * * *'
 permissions:
   contents: write
 jobs:
   cleanup:
     name: Delete old nightly releases and tags
     runs-on: ubuntu-latest
-    if: github.repository == 'nunchaku-ai/nunchaku'
+    if: github.repository == 'jimlee2048/nunchaku'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
