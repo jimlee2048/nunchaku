@@ -95,6 +95,7 @@ jobs:
           build-mount-path-ownership: root:root
           root-reserve-mb: 16384
           swap-size-mb: 8192
+          overprovision-lvm: 'true'
           remove-android: 'true'
           remove-dotnet: 'true'
           remove-haskell: 'true'
