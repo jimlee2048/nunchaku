@@ -171,7 +171,7 @@ jobs:
         with:
           cuda: ${{ fromJSON(env.CUDA_VERSION_MAP)[matrix.cuda] }}
           method: network
-          sub-packages: '["nvcc", "crt", "nvvm", "nvptxcompiler", "nvfatbin", "cudart", "cublas", "cublas_dev", "nvtx", "thrust"]'
+          sub-packages: '["nvcc", "crt", "nvvm", "nvptxcompiler", "nvfatbin", "cudart", "cublas", "cublas_dev", "cusparse", "cusparse_dev", "cusolver", "cusolver_dev", "nvtx", "thrust"]'
           use-local-cache: false
           use-github-cache: false
           log-file-suffix: nightly-py${{ matrix.python }}-torch${{ matrix.torch }}-cu${{ matrix.cuda }}
