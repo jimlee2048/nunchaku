@@ -23,6 +23,7 @@ fi
 echo "TORCH_VERSION is $TORCH_VERSION, setting TORCHVISION_VERSION to $TORCHVISION_VERSION"
 
 docker run --rm \
+    --cpus=3 \
     -v "$(pwd)":/nunchaku \
     pytorch/manylinux2_28-builder:cuda${CUDA_VERSION} \
     bash -c "

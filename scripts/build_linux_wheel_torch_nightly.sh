@@ -8,6 +8,7 @@ MAX_JOBS=${4:-} # optional
 PYTHON_ROOT_PATH=/opt/python/cp${PYTHON_VERSION//.}-cp${PYTHON_VERSION//.}
 
 docker run --rm \
+    --cpus=3 \
     -v "$(pwd)":/nunchaku \
     pytorch/manylinux2_28-builder:cuda${CUDA_VERSION} \
     bash -c "
