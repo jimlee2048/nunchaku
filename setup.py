@@ -107,6 +107,9 @@ if __name__ == "__main__":
     print(f"Detected SM targets: {sm_targets}", file=sys.stderr)
 
     assert len(sm_targets) > 0, "No SM targets found"
+    nvcc_threads = int(os.getenv("NUNCHAKU_NVCC_THREADS", len(sm_targets)))
+    assert nvcc_threads > 0, "NUNCHAKU_NVCC_THREADS must be greater than 0"
+    print(f"NVCC threads: {nvcc_threads}", file=sys.stderr)
 
     GCC_FLAGS = ["-DENABLE_BF16=1", "-DBUILD_NUNCHAKU=1", "-fvisibility=hidden", "-g", "-std=c++20", "-UNDEBUG", "-Og"]
     MSVC_FLAGS = ["/DENABLE_BF16=1", "/DBUILD_NUNCHAKU=1", "/std:c++20", "/UNDEBUG", "/Zc:__cplusplus", "/FS"]
@@ -127,7 +130,7 @@ if __name__ == "__main__":
         "-U__CUDA_NO_BFLOAT16_CONVERSIONS__",
         "-U__CUDA_NO_BFLOAT162_OPERATORS__",
         "-U__CUDA_NO_BFLOAT162_CONVERSIONS__",
-        f"--threads={len(sm_targets)}",
+        f"--threads={nvcc_threads}",
         "--expt-relaxed-constexpr",
         "--expt-extended-lambda",
         "--ptxas-options=--allow-expensive-optimizations=true",

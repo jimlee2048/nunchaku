@@ -115,7 +115,7 @@ jobs:
         if: inputs.tag != ''
         run: |
           git fetch origin main
-          git checkout FETCH_HEAD -- scripts/build_linux_wheel.sh scripts/build_linux_wheel_torch_nightly.sh scripts/linux_cleanup.sh
+          git checkout FETCH_HEAD -- setup.py scripts/build_linux_wheel.sh scripts/build_linux_wheel_torch_nightly.sh scripts/linux_cleanup.sh
       - name: Show current commit
         run: git log -1 --oneline
       - name: Build wheels
