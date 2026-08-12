@@ -6,6 +6,30 @@ on:
         description: Existing release tag to rebuild (leave empty to use the version on main)
         required: false
         type: string
+      platform:
+        description: Platform subset to build
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - linux
+          - windows
+      python:
+        description: Python versions to build (all or comma-separated values)
+        required: false
+        default: all
+        type: string
+      torch:
+        description: PyTorch versions to build (all or comma-separated values)
+        required: false
+        default: all
+        type: string
+      cuda:
+        description: CUDA versions to build (all or comma-separated values)
+        required: false
+        default: all
+        type: string
 permissions:
   contents: write
 jobs:
@@ -15,12 +39,71 @@ jobs:
     if: github.repository == 'jimlee2048/nunchaku'
     outputs:
       tag_name: ${{ steps.set-tag.outputs.tag_name }}
+      build_linux: ${{ steps.matrix.outputs.build_linux }}
+      build_windows: ${{ steps.matrix.outputs.build_windows }}
+      python_matrix: ${{ steps.matrix.outputs.python_matrix }}
+      torch_matrix: ${{ steps.matrix.outputs.torch_matrix }}
+      cuda_matrix: ${{ steps.matrix.outputs.cuda_matrix }}
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: main
+      - name: Resolve build matrix
+        id: matrix
+        env:
+          REQUESTED_PLATFORM: ${{ inputs.platform }}
+          REQUESTED_PYTHON: ${{ inputs.python }}
+          REQUESTED_TORCH: ${{ inputs.torch }}
+          REQUESTED_CUDA: ${{ inputs.cuda }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          allowed = {
+              "python": ["3.10", "3.11", "3.12", "3.13", "3.14"],
+              "torch": ["2.13", "pre"],
+              "cuda": ["13.0"],
+          }
+
+          def resolve(name, requested):
+              requested = (requested or "all").strip()
+              if requested == "all":
+                  return allowed[name]
+              values = [value.strip() for value in requested.split(",")]
+              if not values or any(not value for value in values):
+                  raise SystemExit(f"Invalid {name} selection: {requested!r}")
+              unknown = [value for value in values if value not in allowed[name]]
+              if unknown:
+                  raise SystemExit(
+                      f"Unsupported {name} value(s): {', '.join(unknown)}; "
+                      f"allowed: {', '.join(allowed[name])}"
+                  )
+              return list(dict.fromkeys(values))
+
+          platform = (os.environ.get("REQUESTED_PLATFORM") or "all").strip()
+          if platform not in {"all", "linux", "windows"}:
+              raise SystemExit(f"Unsupported platform: {platform}")
+
+          resolved = {
+              "python": resolve("python", os.environ.get("REQUESTED_PYTHON")),
+              "torch": resolve("torch", os.environ.get("REQUESTED_TORCH")),
+              "cuda": resolve("cuda", os.environ.get("REQUESTED_CUDA")),
+          }
+          outputs = {
+              "build_linux": str(platform in {"all", "linux"}).lower(),
+              "build_windows": str(platform in {"all", "windows"}).lower(),
+              "python_matrix": json.dumps(resolved["python"]),
+              "torch_matrix": json.dumps(resolved["torch"]),
+              "cuda_matrix": json.dumps(resolved["cuda"]),
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              for key, value in outputs.items():
+                  print(f"{key}={value}", file=output)
+          print(json.dumps({"platform": platform, **resolved}, indent=2))
+          PY
       - name: Extract version from __version__.py
         id: version
         run: |
@@ -77,12 +160,14 @@ jobs:
     name: Build the linux release wheels
     runs-on: ubuntu-24.04
     needs: release
+    if: needs.release.outputs.build_linux == 'true'
     strategy:
+      fail-fast: false
       max-parallel: 2
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        torch: ["2.13", "pre"]
-        cuda: ["13.0"] # Phase 2: expand to ["12.6", "13.0", "13.2"] after validation.
+        python: ${{ fromJSON(needs.release.outputs.python_matrix) }}
+        torch: ${{ fromJSON(needs.release.outputs.torch_matrix) }}
+        cuda: ${{ fromJSON(needs.release.outputs.cuda_matrix) }} # Phase 2: expand after validation.
     steps:
       - name: Prepare Docker storage
         run: |
@@ -147,17 +232,19 @@ jobs:
     name: Build the windows release wheels
     runs-on: windows-2022
     needs: release
+    if: needs.release.outputs.build_windows == 'true'
     env:
       CUDA_VERSION_MAP: >-
         {
           "13.0": "13.0.2"
         }
     strategy:
+      fail-fast: false
       max-parallel: 2
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        torch: ["2.13", "pre"]
-        cuda: ["13.0"] # Phase 2: expand to ["12.6", "13.0", "13.2"] after validation.
+        python: ${{ fromJSON(needs.release.outputs.python_matrix) }}
+        torch: ${{ fromJSON(needs.release.outputs.torch_matrix) }}
+        cuda: ${{ fromJSON(needs.release.outputs.cuda_matrix) }} # Phase 2: expand after validation.
     steps:
       - name: Checkout to the tag
         uses: actions/checkout@v4
@@ -170,7 +257,7 @@ jobs:
         shell: cmd
         run: |
           git fetch origin main
-          git checkout FETCH_HEAD -- scripts/build_windows_wheel.cmd scripts/build_windows_wheel_torch_nightly.cmd
+          git checkout FETCH_HEAD -- setup.py scripts/build_windows_wheel.cmd scripts/build_windows_wheel_torch_nightly.cmd
       - name: Show current commit
         shell: cmd
         run: git log -1 --oneline
