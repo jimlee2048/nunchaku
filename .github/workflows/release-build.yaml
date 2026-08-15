@@ -65,7 +65,7 @@ jobs:
           allowed = {
               "python": ["3.10", "3.11", "3.12", "3.13", "3.14"],
               "torch": ["2.13", "pre"],
-              "cuda": ["13.0"],
+              "cuda": ["12.6", "13.0", "13.2"],
           }
 
           def resolve(name, requested):
@@ -163,11 +163,11 @@ jobs:
     if: needs.release.outputs.build_linux == 'true'
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 10
       matrix:
         python: ${{ fromJSON(needs.release.outputs.python_matrix) }}
         torch: ${{ fromJSON(needs.release.outputs.torch_matrix) }}
-        cuda: ${{ fromJSON(needs.release.outputs.cuda_matrix) }} # Phase 2: expand after validation.
+        cuda: ${{ fromJSON(needs.release.outputs.cuda_matrix) }}
     steps:
       - name: Prepare Docker storage
         run: |
@@ -236,15 +236,17 @@ jobs:
     env:
       CUDA_VERSION_MAP: >-
         {
-          "13.0": "13.0.2"
+          "12.6": "12.6.3",
+          "13.0": "13.0.2",
+          "13.2": "13.2.1"
         }
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 10
       matrix:
         python: ${{ fromJSON(needs.release.outputs.python_matrix) }}
         torch: ${{ fromJSON(needs.release.outputs.torch_matrix) }}
-        cuda: ${{ fromJSON(needs.release.outputs.cuda_matrix) }} # Phase 2: expand after validation.
+        cuda: ${{ fromJSON(needs.release.outputs.cuda_matrix) }}
     steps:
       - name: Checkout to the tag
         uses: actions/checkout@v4
