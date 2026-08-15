@@ -147,7 +147,7 @@ jobs:
         {
           "12.6": "12.6.3",
           "13.0": "13.0.2",
-          "13.2": "13.2.1"
+          "13.2": "13.2.2"
         }
     strategy:
       fail-fast: false
@@ -175,8 +175,7 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: ${{ fromJSON(env.CUDA_VERSION_MAP)[matrix.cuda] }}
-          method: network
-          sub-packages: '["nvcc", "crt", "nvvm", "nvptxcompiler", "nvfatbin", "cudart", "cublas", "cublas_dev", "cusparse", "cusparse_dev", "cusolver", "cusolver_dev", "nvtx", "thrust"]'
+          method: local
           use-local-cache: false
           use-github-cache: false
           log-file-suffix: nightly-py${{ matrix.python }}-torch${{ matrix.torch }}-cu${{ matrix.cuda }}
